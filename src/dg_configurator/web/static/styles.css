@@ -1,0 +1,746 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (c) 2026 TTTech Industrial Automation AG */
+
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --panel-border: #d3d7de;
+  --text: #1d2330;
+  --muted: #667085;
+  --accent: #2563eb;
+  --canvas-bg: #eef0f4;
+  --canvas-dot: #c6cbd6;
+  --node-bg: #ffffff;
+  --node-border: #8a93a6;
+  --port-bg: #ffffff;
+  --edge: #5b7db1;
+  --color-mqtt: #7c3aed;
+  --color-opcua: #0e8a6b;
+  --color-sql: #c2410c;
+  --color-error: #d92d20;
+  --color-warning: #d98a00;
+  --color-ok: #17803d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171f;
+    --panel: #1c212c;
+    --panel-border: #343b4a;
+    --text: #e4e8f0;
+    --muted: #9aa4b8;
+    --accent: #6c9bff;
+    --canvas-bg: #181c25;
+    --canvas-dot: #2d3442;
+    --node-bg: #242a37;
+    --node-border: #5c667c;
+    --port-bg: #1c212c;
+    --edge: #7c9ad0;
+    --color-mqtt: #a78bfa;
+    --color-opcua: #34d3a1;
+    --color-sql: #fb923c;
+    --color-error: #ff6b5e;
+    --color-warning: #f5b84b;
+    --color-ok: #4ade80;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 170px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+select {
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.danger {
+  color: var(--color-error);
+  margin-top: 12px;
+}
+
+button.small {
+  padding: 0 8px;
+}
+
+h2 {
+  margin: 8px 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.hint {
+  margin: 2px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* toolbar */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#toolbar .spacer {
+  flex: 1;
+}
+
+#tool-version {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.version-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* three-column main area */
+
+#layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 360px;
+  min-height: 0;
+}
+
+#palette,
+#properties-panel {
+  padding: 4px 12px 12px;
+  overflow-y: auto;
+  background: var(--panel);
+}
+
+#palette {
+  border-right: 1px solid var(--panel-border);
+}
+
+#properties-panel {
+  border-left: 1px solid var(--panel-border);
+}
+
+.palette-item {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  text-align: left;
+  border-left-width: 4px;
+}
+
+.palette-item.dg-mqtt {
+  border-left-color: var(--color-mqtt);
+}
+
+.palette-item.dg-opcua {
+  border-left-color: var(--color-opcua);
+}
+
+.palette-item.dg-sql {
+  border-left-color: var(--color-sql);
+}
+
+#canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+#drawflow {
+  position: absolute;
+  inset: 0;
+}
+
+#message {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+  z-index: 10;
+}
+
+#message.message-error {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+#message.message-ok {
+  border-color: var(--color-ok);
+  color: var(--color-ok);
+}
+
+/* graph nodes: header, a column title row, then one 24px row per port; ports are aligned to those rows */
+
+.drawflow .drawflow-node.dg-node {
+  display: block;
+  width: 240px;
+  min-height: 0;
+  padding: 0;
+  background: var(--node-bg);
+  color: var(--text);
+  border: 2px solid var(--node-border);
+  border-top: 4px solid var(--node-border);
+  border-radius: 6px;
+}
+
+.drawflow .drawflow-node.dg-node.dg-mqtt {
+  border-top-color: var(--color-mqtt);
+}
+
+.drawflow .drawflow-node.dg-node.dg-opcua {
+  border-top-color: var(--color-opcua);
+}
+
+.drawflow .drawflow-node.dg-node.dg-sql {
+  border-top-color: var(--color-sql);
+}
+
+.drawflow .drawflow-node.dg-node.selected {
+  background: var(--node-bg);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.drawflow .drawflow-node.dg-node .inputs,
+.drawflow .drawflow-node.dg-node .outputs {
+  position: absolute;
+  top: 46px;
+  width: 0;
+}
+
+.drawflow .drawflow-node.dg-node .inputs {
+  left: 0;
+}
+
+.drawflow .drawflow-node.dg-node .outputs {
+  right: 0;
+}
+
+.drawflow .drawflow-node.dg-node .input,
+.drawflow .drawflow-node.dg-node .output {
+  width: 14px;
+  height: 14px;
+  margin: 5px 0;
+  top: 0;
+  background: var(--port-bg);
+  border: 2px solid var(--node-border);
+}
+
+.drawflow .drawflow-node.dg-node .input {
+  left: -9px;
+}
+
+.drawflow .drawflow-node.dg-node .output {
+  right: -5px;
+}
+
+.drawflow .drawflow-node.dg-node .input:hover,
+.drawflow .drawflow-node.dg-node .output:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.dg-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  height: 28px;
+  padding: 4px 12px 0;
+  font-weight: 600;
+}
+
+.dg-node-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dg-node-type {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.dg-node-cols {
+  display: flex;
+  min-height: 42px;
+}
+
+.dg-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.dg-col-title {
+  height: 18px;
+  padding: 0 14px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dg-col-input .dg-col-title,
+.dg-col-input .dg-port-row {
+  text-align: right;
+}
+
+.dg-port-row {
+  height: 24px;
+  padding: 0 14px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dg-port-row:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.dg-port-row.dg-port-selected {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.drawflow .connection .main-path {
+  stroke: var(--edge);
+  stroke-width: 4px;
+}
+
+/* diagnostics highlighting (graph nodes, ports, edges and form fields) */
+
+.dg-error {
+  outline: 2px solid var(--color-error);
+  outline-offset: 1px;
+}
+
+.dg-warning {
+  outline: 2px solid var(--color-warning);
+  outline-offset: 1px;
+}
+
+.dg-port-row.dg-error,
+.dg-port-row.dg-warning {
+  outline: none;
+}
+
+.dg-port-row.dg-error {
+  background: color-mix(in srgb, var(--color-error) 25%, transparent);
+}
+
+.dg-port-row.dg-warning {
+  background: color-mix(in srgb, var(--color-warning) 25%, transparent);
+}
+
+.drawflow .connection.dg-error,
+.drawflow .connection.dg-warning,
+.drawflow .connection.dg-focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.drawflow .connection.dg-error .main-path {
+  stroke: var(--color-error);
+}
+
+.drawflow .connection.dg-warning .main-path {
+  stroke: var(--color-warning);
+}
+
+.drawflow .connection.dg-focus .main-path {
+  stroke-width: 7px;
+}
+
+.dg-focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.dg-flash {
+  animation: dg-flash 1.6s ease-out;
+}
+
+@keyframes dg-flash {
+  from {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+/* forms */
+
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  border-radius: 3px;
+}
+
+.field > label {
+  padding-top: 4px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.field .control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="password"],
+.field select,
+.field textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+}
+
+.field textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.field textarea.invalid {
+  border-color: var(--color-error);
+}
+
+.field input[type="checkbox"] {
+  margin: 6px 0;
+}
+
+.group {
+  margin: 0;
+  padding: 4px 8px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+.group > legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.group > legend input[type="checkbox"] {
+  margin: 0 6px 0 0;
+}
+
+.group > legend button {
+  margin-left: 8px;
+}
+
+.group .group {
+  margin-top: 4px;
+}
+
+.req {
+  margin-left: 2px;
+  color: var(--color-error);
+}
+
+.hint {
+  font-size: 12px;
+}
+
+.file-status {
+  font-size: 11px;
+}
+
+.file-status.ok {
+  color: var(--color-ok);
+}
+
+.file-status.missing {
+  color: var(--color-warning);
+}
+
+/* diagnostics panel */
+
+#diagnostics-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--panel-border);
+}
+
+#diagnostics-summary {
+  padding: 4px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#diagnostics-summary.has-errors {
+  color: var(--color-error);
+}
+
+#diagnostics-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.diag {
+  padding: 3px 12px 3px 10px;
+  border-left: 4px solid transparent;
+  cursor: pointer;
+}
+
+.diag:hover,
+.diag:focus {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.diag-error {
+  border-left-color: var(--color-error);
+}
+
+.diag-warning {
+  border-left-color: var(--color-warning);
+}
+
+.diag-code {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.diag-path {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* package dialog */
+
+dialog {
+  padding: 16px 20px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+dialog h2 {
+  margin-top: 0;
+}
+
+dialog .row,
+dialog .column {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+dialog .column {
+  flex-direction: column;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* keys & certificates dialog */
+
+#keys-dialog {
+  width: min(900px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+#keys-dialog [hidden] {
+  display: none !important;
+}
+
+#keys-dialog .tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#keys-dialog .tabs button[aria-selected="true"] {
+  border-bottom: 2px solid var(--accent);
+  font-weight: 600;
+}
+
+#keys-status {
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#keys-status.message-error {
+  border-left-color: var(--color-error);
+}
+
+#keys-status.message-ok {
+  border-left-color: var(--color-ok);
+}
+
+#keys-dialog .hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+#keys-dialog ul.hint {
+  padding-left: 18px;
+}
+
+#keys-dialog textarea,
+#keys-dialog input[type="text"],
+#keys-dialog input[type="password"],
+#keys-dialog input[type="number"],
+#keys-dialog select {
+  width: 100%;
+  font: inherit;
+}
+
+#keys-dialog .keys-public-value {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+#keys-dialog fieldset.pki-cert {
+  margin: 10px 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+#keys-dialog .pki-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 12px;
+}
+
+#keys-dialog .san-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+#keys-dialog .keys-warnings {
+  color: var(--color-warning);
+  padding-left: 18px;
+}
+
+#keys-dialog .keys-files {
+  list-style: none;
+  padding: 0;
+}
+
+#keys-dialog .keys-files li {
+  margin: 4px 0;
+}
+
+#keys-dialog .keys-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+#keys-dialog .keys-table th,
+#keys-dialog .keys-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+#keys-dialog .keys-table .fingerprint {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}

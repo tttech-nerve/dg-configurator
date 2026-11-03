@@ -1,0 +1,45 @@
+{
+  "version": "1.1",
+  "endpoints": [
+    {
+      "id": 1,
+      "name": "mqtt-in",
+      "endpointType": "mqtt-client",
+      "url": "mqtt://broker.local:1883",
+      "inputs": [
+        {
+          "id": 1,
+          "name": "temp",
+          "inputType": "mqtt-subscriber",
+          "messageFormat": "json",
+          "topics": [{"topic": "sensors/temp"}]
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "id": 2,
+      "name": "mqtt-out",
+      "endpointType": "mqtt-client",
+      "url": "mqtt://broker.local:1883",
+      "inputs": [],
+      "outputs": [
+        {"id": 1, "name": "temp-out", "outputType": "mqtt-publisher", "messageFormat": "json", "topic": "out/temp"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "history",
+      "endpointType": "sql-client",
+      "dbType": "postgresql",
+      "host": "db.local",
+      "outputs": [
+        {"id": 1, "name": "readings", "outputType": "sql-columnar-writer", "table": "readings"}
+      ]
+    }
+  ],
+  "connections": [
+    {"id": 1, "name": "bridge", "source": {"endpoint": 1, "input": 1}, "destination": {"endpoint": 2, "output": 1}},
+    {"id": 2, "name": "archive", "source": {"endpoint": 1, "input": 1}, "destination": {"endpoint": 3, "output": 1}}
+  ]
+}

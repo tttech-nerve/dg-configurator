@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "endpoints": [
+    {"id": 1, "name": "broker", "endpointType": "mqtt-client", "url": "mqtt://broker.local:1883", "bogus": true}
+  ],
+  "connections": []
+}

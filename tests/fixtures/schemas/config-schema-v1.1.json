@@ -1,0 +1,622 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.nerve.cloud/datagate/v110/configuration/static/config-schema-v1.1.json",
+  "title": "Nerve Data Gateway User Configuration (v1.1)",
+  "description": "Schema for the Data Gateway `config.json` file with `version` = \"1.1\". Introduced in Data Gateway 1.1.0. Adds the `sql-client` endpoint type and the `sql-columnar-writer` / `sql-binary-writer` output types on top of v1.0. Authoritative source: data-gateway-documentation/configuration/config-schema-v1.1.json.",
+  "type": "object",
+  "required": ["version", "endpoints", "connections"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional URL of this schema — allows editors to provide autocompletion and validation."
+    },
+    "version": {
+      "const": "1.1",
+      "description": "Configuration file schema version. Must be the literal string \"1.1\" for this schema."
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "Every external system the Data Gateway connects to (data sources and sinks).",
+      "items": { "$ref": "#/$defs/Endpoint" }
+    },
+    "connections": {
+      "type": "array",
+      "description": "Wires exactly one input on one endpoint to exactly one output on another endpoint.",
+      "items": { "$ref": "#/$defs/Connection" }
+    },
+    "passwordPolicy": { "$ref": "#/$defs/PasswordPolicy" }
+  },
+  "unevaluatedProperties": false,
+  "$defs": {
+    "Uint32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "PasswordPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Global characteristics of ALL passwords the Data Gateway generates. Optional; every field has a secure default, so omitting the object (or any field) keeps existing configs valid.",
+      "properties": {
+        "minLength": { "type": "integer", "minimum": 8, "maximum": 256, "default": 15, "description": "Minimum generated length. The generator picks a random length in [minLength, maxLength]." },
+        "maxLength": { "type": "integer", "minimum": 8, "maximum": 256, "default": 15, "description": "Maximum generated length. Must be >= minLength." },
+        "useLowercase": { "type": "boolean", "default": true },
+        "useUppercase": { "type": "boolean", "default": true },
+        "useDigits": { "type": "boolean", "default": true },
+        "useSymbols": { "type": "boolean", "default": true },
+        "symbols": { "type": "string", "minLength": 1, "default": "!#$%*+-.:=?@^_~", "pattern": "^[!#$%*+.:=?@^_~-]+$", "description": "Symbol alphabet used when useSymbols is true. Must be a (non-empty) subset of the fixed set !#$%*+-.:=?@^_~ — no other symbols are permitted. This set deliberately excludes quote/backslash/space to keep exported creds safe in SQL literals, connection strings and .env files." }
+      }
+    },
+    "Endpoint": {
+      "type": "object",
+      "required": ["id", "name", "endpointType"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Uint32",
+          "description": "Identifier — must be unique among all endpoints."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the endpoint."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description of the endpoint."
+        },
+        "endpointType": {
+          "enum": ["opcua-client", "mqtt-client", "sql-client"],
+          "description": "Type of the endpoint. Determines which additional parameters are valid."
+        }
+      },
+      "oneOf": [
+        { "$ref": "#/$defs/MqttEndpoint" },
+        { "$ref": "#/$defs/OpcuaEndpoint" },
+        { "$ref": "#/$defs/SqlEndpoint" }
+      ]
+    },
+    "MqttEndpoint": {
+      "type": "object",
+      "required": ["endpointType", "url"],
+      "properties": {
+        "endpointType": { "const": "mqtt-client" },
+        "url": {
+          "type": "string",
+          "pattern": "^mqtts?://",
+          "description": "MQTT broker URL. `mqtt://` requires `security.tlsEnabled = false`; `mqtts://` requires `security.tlsEnabled = true`."
+        },
+        "reconnectInterval": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400,
+          "default": 5,
+          "description": "Seconds to wait before each reconnection attempt after unexpected connection loss."
+        },
+        "version": {
+          "enum": ["5.0"],
+          "default": "5.0",
+          "description": "MQTT protocol version to use for the connection."
+        },
+        "clientID": {
+          "type": "string",
+          "default": "data-gateway-client",
+          "description": "MQTT client identifier used when connecting to the broker."
+        },
+        "websockets": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, use MQTT over WebSockets."
+        },
+        "login": { "$ref": "#/$defs/UserPasswordLogin" },
+        "security": { "$ref": "#/$defs/MqttSecurity" },
+        "advanced": { "$ref": "#/$defs/MqttAdvanced" },
+        "inputs": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/MqttSubscriberInput" }
+        },
+        "outputs": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/MqttPublisherOutput" }
+        }
+      }
+    },
+    "OpcuaEndpoint": {
+      "type": "object",
+      "required": ["endpointType", "url"],
+      "properties": {
+        "endpointType": { "const": "opcua-client" },
+        "url": {
+          "type": "string",
+          "pattern": "^opc\\.tcp://",
+          "description": "OPC UA server URL (opc.tcp://host:port/path)."
+        },
+        "reconnectInterval": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400,
+          "default": 5,
+          "description": "Seconds to wait before each reconnection attempt after unexpected connection loss."
+        },
+        "login": { "$ref": "#/$defs/UserPasswordLogin" },
+        "security": { "$ref": "#/$defs/OpcuaSecurity" },
+        "inputs": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/OpcuaInput" }
+        },
+        "outputs": {
+          "type": "array",
+          "default": [],
+          "maxItems": 0,
+          "description": "The opcua-client endpoint currently does not support outputs — must be an empty array."
+        }
+      }
+    },
+    "SqlEndpoint": {
+      "type": "object",
+      "required": ["endpointType", "dbType", "host"],
+      "properties": {
+        "endpointType": { "const": "sql-client" },
+        "dbType": {
+          "enum": ["postgresql", "timescaledb", "questdb"],
+          "description": "Database system to connect to. Determines the write protocol used and the valid output types."
+        },
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP address of the database server."
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "PostgreSQL wire protocol port. Default 5432 for `postgresql` and `timescaledb`; default 8812 for `questdb` (used only for management operations such as CREATE TABLE)."
+        },
+        "ilpPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 9000,
+          "description": "QuestDB only: HTTP ILP (InfluxDB Line Protocol) port used for data ingestion. Ignored for postgresql and timescaledb."
+        },
+        "database": {
+          "type": "string",
+          "description": "Name of the target database. Not applicable for questdb (single-database system)."
+        },
+        "reconnectInterval": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400,
+          "default": 5,
+          "description": "Seconds to wait before each reconnection attempt after unexpected connection loss."
+        },
+        "login": { "$ref": "#/$defs/UserPasswordLogin" },
+        "security": { "$ref": "#/$defs/SqlSecurity" },
+        "advanced": { "$ref": "#/$defs/SqlAdvanced" },
+        "bootstrap": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional self-provisioning of a least-privilege gateway DB role against a vanilla PostgreSQL/TimescaleDB. Not supported for dbType=questdb (rejected by the supervisor validator).",
+          "required": ["enabled", "admin"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "admin": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "One-time bootstrap seed: an existing admin/superuser account used only for the first provisioning. Expected to stop working after rotation.",
+              "required": ["username", "password"],
+              "properties": {
+                "username": { "type": "string", "minLength": 1 },
+                "password": { "type": "string", "minLength": 1 }
+              }
+            },
+            "gatewayRoleName": { "type": "string", "minLength": 1, "description": "Name of the least-privilege login role the gateway creates/maintains and uses for writing." },
+            "schema": { "type": "string", "minLength": 1, "default": "public" },
+            "rotateAdminPassword": { "type": "boolean", "default": true, "description": "After a successful bootstrap using the public seed, rotate the admin password to a strong random value (break-glass recovery path)." },
+            "exportPublicKey": { "type": "string", "minLength": 1, "description": "age X25519 recipient; encrypts ALL exported credential files (rotated admin always, human user if created). REQUIRED when bootstrap is enabled unless allowPlaintextExport is true." },
+            "allowPlaintextExport": { "type": "boolean", "default": false, "description": "INSECURE opt-out: when true, exported credential files are written in plaintext and exportPublicKey may be omitted. Not recommended." },
+            "exportUser": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Optional human login role to create alongside the gateway role.",
+              "required": ["username", "privilege"],
+              "properties": {
+                "username": { "type": "string", "minLength": 1 },
+                "privilege": { "type": "string", "enum": ["read-only", "read-write"] },
+                "regenerate": { "type": "string", "description": "opaque nonce; change its value to force generation of a fresh human credential on next apply." }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "allowPlaintextExport": { "const": true } }, "required": ["allowPlaintextExport"] },
+              "then": true,
+              "else": { "required": ["exportPublicKey"] }
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "default": [],
+          "maxItems": 0,
+          "description": "The sql-client endpoint does not support inputs — must be an empty array."
+        },
+        "outputs": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/SqlOutput" }
+        }
+      }
+    },
+    "UserPasswordLogin": {
+      "type": "object",
+      "description": "Credentials for username / password authentication. Omit the whole object for anonymous.",
+      "properties": {
+        "username": { "type": "string" },
+        "password": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "MqttSecurity": {
+      "type": "object",
+      "description": "TLS / SSL settings for the MQTT endpoint.",
+      "properties": {
+        "tlsEnabled": { "type": "boolean", "default": false },
+        "ca": { "type": "string", "description": "Filename of the CA certificate (PEM) used to verify the broker certificate." },
+        "certificate": { "type": "string", "description": "Filename of the client certificate (PEM)." },
+        "key": { "type": "string", "description": "Filename of the client key (PEM)." },
+        "keyPassword": { "type": "string", "description": "Password for the client key file." },
+        "tlsVersion": { "enum": ["1.2", "1.3"], "default": "1.3" },
+        "tlsInsecure": { "type": "boolean", "default": false, "description": "If true, the broker certificate is not verified." }
+      },
+      "additionalProperties": false
+    },
+    "OpcuaSecurity": {
+      "type": "object",
+      "description": "OPC UA security settings.",
+      "properties": {
+        "mode": {
+          "enum": ["None", "Sign", "SignAndEncrypt"],
+          "default": "None",
+          "description": "OPC UA MessageSecurityMode. See https://reference.opcfoundation.org/Core/Part2/v104/docs/4.8"
+        },
+        "policy": {
+          "enum": ["None", "Basic128Rsa15", "Basic256", "Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"],
+          "default": "None",
+          "description": "OPC UA SecurityPolicy. See https://reference.opcfoundation.org/Core/Part2/v104/docs/4.6"
+        },
+        "ca": { "type": "string", "description": "Filename of the CA certificate (PEM) used to verify the server certificate." },
+        "certificate": { "type": "string", "description": "Filename of the client certificate (PEM)." },
+        "key": { "type": "string", "description": "Filename of the client key (PEM)." },
+        "keyPassword": { "type": "string", "description": "Password for the client key file." }
+      },
+      "additionalProperties": false
+    },
+    "SqlSecurity": {
+      "type": "object",
+      "description": "TLS settings for the SQL endpoint.",
+      "properties": {
+        "tlsEnabled": { "type": "boolean", "default": false },
+        "ca": { "type": "string", "description": "Filename of the CA certificate (PEM) used to verify the server certificate." },
+        "certificate": { "type": "string", "description": "Filename of the client certificate (PEM)." },
+        "key": { "type": "string", "description": "Filename of the client key (PEM)." },
+        "tlsVersion": { "enum": ["1.2", "1.3"], "default": "1.2" },
+        "tlsInsecure": { "type": "boolean", "default": false, "description": "If true, the server certificate is not verified." }
+      },
+      "additionalProperties": false
+    },
+    "MqttAdvanced": {
+      "type": "object",
+      "description": "Advanced MQTT connection settings.",
+      "properties": {
+        "keepAlive": { "type": "integer", "minimum": 0, "maximum": 65535, "default": 60, "description": "Seconds between keep-alive messages." },
+        "cleanSession": { "type": "boolean", "default": false },
+        "willTopic": { "type": "string", "description": "Topic for the last will testament (LWT) message." },
+        "willMessage": { "type": "string", "description": "Content of the LWT message." },
+        "willQoS": { "type": "integer", "minimum": 0, "maximum": 2, "default": 1 },
+        "willRetain": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
+    "SqlAdvanced": {
+      "type": "object",
+      "description": "Write performance tuning for SQL endpoints.",
+      "properties": {
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of rows to accumulate before a write is issued. Values >1 improve throughput, especially with QuestDB ILP."
+        },
+        "flushIntervalMS": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1000,
+          "description": "Maximum time (ms) between flushes. Ensures data is written even if a full batchSize batch has not accumulated. Has no effect when batchSize is 1."
+        }
+      },
+      "additionalProperties": false
+    },
+    "MqttSubscriberInput": {
+      "type": "object",
+      "required": ["id", "name", "inputType", "messageFormat", "topics"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Uint32", "description": "Identifier — must be unique among all inputs of the endpoint." },
+        "name": { "type": "string" },
+        "description": { "type": "string", "default": "" },
+        "inputType": { "const": "mqtt-subscriber" },
+        "messageFormat": {
+          "enum": ["json", "binary", "protobuf"],
+          "description": "Format of the incoming MQTT message payload."
+        },
+        "variableSchema": {
+          "$ref": "#/$defs/VariableSchemaNode",
+          "description": "Optional. Declares expected types for variables in JSON-format messages. Ignored for binary and protobuf inputs. If a declared variable's arriving JSON value does not match the declared type, that variable is dropped with a warning. Undeclared variables have their type inferred."
+        },
+        "topics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MqttTopicSubscription" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "VariableSchemaNode": {
+      "description": "Either a leaf type string or a nested object mapping child variable names to VariableSchemaNodes.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "bool",
+            "int16",  "uint16",
+            "int32",  "uint32",
+            "int64",  "uint64",
+            "float",  "double",
+            "string", "datetime",
+            "bool[]",
+            "int16[]",  "uint16[]",
+            "int32[]",  "uint32[]",
+            "int64[]",  "uint64[]",
+            "float[]",  "double[]",
+            "string[]", "datetime[]"
+          ],
+          "description": "Scalar or array type for a single variable."
+        },
+        {
+          "type": "object",
+          "description": "Nested variable group — maps child names to their types.",
+          "patternProperties": {
+            "^[a-zA-Z0-9_]+$": { "$ref": "#/$defs/VariableSchemaNode" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MqttTopicSubscription": {
+      "type": "object",
+      "required": ["topic"],
+      "properties": {
+        "topic": {
+          "type": "string",
+          "description": "Topic to subscribe to. Supports MQTT wildcards `+` and `#`."
+        },
+        "qos": { "type": "integer", "minimum": 0, "maximum": 2, "default": 0 },
+        "rateLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "0 = no rate limit. >0 = maximum number of messages received per second (sliding window); additional messages are dropped."
+        }
+      },
+      "additionalProperties": false
+    },
+    "MqttPublisherOutput": {
+      "type": "object",
+      "required": ["id", "name", "outputType", "messageFormat", "topic"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Uint32", "description": "Identifier — must be unique among all outputs of the endpoint." },
+        "name": { "type": "string" },
+        "description": { "type": "string", "default": "" },
+        "outputType": { "const": "mqtt-publisher" },
+        "messageFormat": {
+          "enum": ["json", "protobuf"],
+          "description": "Format of the outgoing MQTT message payload."
+        },
+        "topic": {
+          "type": "string",
+          "description": "Topic to publish to."
+        },
+        "qos": { "type": "integer", "minimum": 0, "maximum": 2, "default": 0 },
+        "timestampFormat": {
+          "enum": ["unix-ns", "rfc3339nano"],
+          "default": "unix-ns",
+          "description": "Format of the `timestamp` field when `messageFormat` is `json`. `unix-ns` (default) emits a 64-bit integer (nanoseconds since Unix epoch). `rfc3339nano` emits an RFC 3339 string with nanosecond resolution in UTC (e.g. \"2023-11-14T22:13:20.123456789Z\"). Ignored when `messageFormat` is `protobuf`."
+        }
+      },
+      "additionalProperties": false
+    },
+    "OpcuaInput": {
+      "type": "object",
+      "required": ["id", "name", "inputType", "nodes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Uint32", "description": "Identifier — must be unique among all inputs of the endpoint." },
+        "name": { "type": "string" },
+        "description": { "type": "string", "default": "" },
+        "inputType": { "enum": ["opcua-polling", "opcua-subscriber"] },
+        "pollingIntervalMS": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400000,
+          "description": "Polling interval in milliseconds. Only for inputType = opcua-polling."
+        },
+        "samplingIntervalMS": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400000,
+          "description": "Interval at which the server should sample the object (ms). Only for inputType = opcua-subscriber."
+        },
+        "publishingIntervalMS": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400000,
+          "description": "Interval at which the server should publish the object (ms). Only for inputType = opcua-subscriber."
+        },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OpcuaNode" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "inputType": { "const": "opcua-polling" } }, "required": ["inputType"] },
+          "then": { "required": ["pollingIntervalMS"] }
+        },
+        {
+          "if": { "properties": { "inputType": { "const": "opcua-subscriber" } }, "required": ["inputType"] },
+          "then": { "required": ["samplingIntervalMS", "publishingIntervalMS"] }
+        }
+      ]
+    },
+    "OpcuaNode": {
+      "type": "object",
+      "required": ["node"],
+      "properties": {
+        "node": {
+          "type": "string",
+          "description": "OPC UA node id of the object to be polled / subscribed."
+        },
+        "nameFromNodeID": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the resulting variable name is the full OPC UA node id; otherwise the display name of the OPC UA object is used."
+        },
+        "register": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, register the node (or all sub-nodes for a folder) at the OPC UA server. See https://reference.opcfoundation.org/Core/Part4/v104/docs/5.8.5"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SqlOutput": {
+      "type": "object",
+      "required": ["id", "name", "outputType", "table"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Uint32", "description": "Identifier — must be unique among all outputs of the endpoint." },
+        "name": { "type": "string" },
+        "description": { "type": "string", "default": "" },
+        "outputType": { "enum": ["sql-columnar-writer", "sql-binary-writer"] }
+      },
+      "oneOf": [
+        { "$ref": "#/$defs/SqlColumnarWriterOutput" },
+        { "$ref": "#/$defs/SqlBinaryWriterOutput" }
+      ]
+    },
+    "SqlColumnarWriterOutput": {
+      "type": "object",
+      "required": ["outputType", "table"],
+      "properties": {
+        "outputType": { "const": "sql-columnar-writer" },
+        "table": {
+          "type": "string",
+          "description": "Name of the target table. Must exist unless autoCreateTable is true."
+        },
+        "timestampColumn": {
+          "type": "string",
+          "default": "timestamp",
+          "description": "Name of the column that receives the message timestamp. Designated timestamp for QuestDB; hypertable time dimension for TimescaleDB."
+        },
+        "excludeVariables": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" },
+          "description": "Regex patterns (anchored / full-match). Any variable whose name matches at least one pattern is excluded from writing."
+        },
+        "autoCreateTable": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, create the table if it does not exist and add new columns as new variable names appear. If false, unknown variables are dropped with a warning."
+        },
+        "retentionPeriod": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5256000,
+          "default": 0,
+          "description": "Retention period in minutes. When greater than 0, rows older than this value are periodically deleted from the target table. 0 disables retention."
+        },
+        "nestedVariableDelimiter": {
+          "type": "string",
+          "enum": ["_", "-", "."],
+          "default": "_",
+          "description": "Character used to join path segments when a nested variable is flattened into a column name (e.g. \"motor_temperature\"). Not expressible here: \".\" is rejected at runtime when the endpoint's dbType is \"questdb\" (same style of runtime-only restriction as the sql-binary-writer + questdb incompatibility)."
+        }
+      }
+    },
+    "SqlBinaryWriterOutput": {
+      "type": "object",
+      "required": ["outputType", "table"],
+      "properties": {
+        "outputType": { "const": "sql-binary-writer" },
+        "table": {
+          "type": "string",
+          "description": "Name of the target table. Must exist unless autoCreateTable is true."
+        },
+        "timestampColumn": {
+          "type": "string",
+          "default": "timestamp",
+          "description": "Name of the timestamp column. Set to the current time at the moment of writing."
+        },
+        "dataColumn": {
+          "type": "string",
+          "default": "data",
+          "description": "Name of the column that stores the binary payload (BYTEA in PostgreSQL / TimescaleDB)."
+        },
+        "autoCreateTable": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the table is created automatically (with timestampColumn and dataColumn) if it does not exist."
+        },
+        "retentionPeriod": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5256000,
+          "default": 0,
+          "description": "Retention period in minutes. When greater than 0, rows older than this value are periodically deleted from the target table. 0 disables retention."
+        }
+      }
+    },
+    "Connection": {
+      "type": "object",
+      "required": ["id", "name", "source", "destination"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Uint32", "description": "Identifier — must be unique among connections." },
+        "name": { "type": "string" },
+        "description": { "type": "string", "default": "" },
+        "source": { "$ref": "#/$defs/ConnectionSource" },
+        "destination": { "$ref": "#/$defs/ConnectionDestination" }
+      },
+      "additionalProperties": false
+    },
+    "ConnectionSource": {
+      "type": "object",
+      "required": ["endpoint", "input"],
+      "properties": {
+        "endpoint": { "$ref": "#/$defs/Uint32", "description": "Id of the endpoint that holds the input to connect." },
+        "input": { "$ref": "#/$defs/Uint32", "description": "Id of the input to connect." }
+      },
+      "additionalProperties": false
+    },
+    "ConnectionDestination": {
+      "type": "object",
+      "required": ["endpoint", "output"],
+      "properties": {
+        "endpoint": { "$ref": "#/$defs/Uint32", "description": "Id of the endpoint that holds the output to connect." },
+        "output": { "$ref": "#/$defs/Uint32", "description": "Id of the output to connect." }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "endpoints": [
+    {
+      "id": 1, "name": "plc", "endpointType": "opcua-client", "url": "opc.tcp://plc.local:4840",
+      "inputs": [{"id": 1, "name": "values", "inputType": "opcua-polling", "nodes": [{"node": "ns=2;s=Temperature"}]}]
+    }
+  ],
+  "connections": []
+}

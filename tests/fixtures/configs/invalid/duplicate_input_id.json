@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "endpoints": [
+    {
+      "id": 1, "name": "mqtt-in", "endpointType": "mqtt-client", "url": "mqtt://broker.local:1883",
+      "inputs": [
+        {"id": 1, "name": "a", "inputType": "mqtt-subscriber", "messageFormat": "json", "topics": [{"topic": "a"}]},
+        {"id": 1, "name": "b", "inputType": "mqtt-subscriber", "messageFormat": "json", "topics": [{"topic": "b"}]}
+      ]
+    }
+  ],
+  "connections": []
+}

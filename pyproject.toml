@@ -1,0 +1,101 @@
+[project]
+name = "dg-configurator"
+version = "0.1.0"
+description = "Graphical editor, validator and packager for Nerve Data Gateway configuration files"
+authors = [
+    {name = "TTTech Industrial Automation AG", email = "support@tttech-industrial.com"}
+]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["nerve", "data-gateway", "configuration", "opc-ua", "mqtt"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.14",
+    "Framework :: FastAPI",
+]
+requires-python = ">=3.14,<4"
+dependencies = ["pydantic (>=2.12,<2.12.4)", "fastapi (>=0.115,<1.0)", "uvicorn (>=0.34,<1.0)", "python-multipart (>=0.0.20,<1.0)", "cryptography (>=46,<47)"]
+
+[project.scripts]
+dg-configurator = "dg_configurator.cli:main"
+
+
+[tool.poetry]
+packages = [{include = "dg_configurator", from = "src"}]
+include = [{ path = "src/dg_configurator/web/static/**/*", format = ["sdist", "wheel"] }]
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=9.0.0,<10.0.0"
+pytest-cov = ">=7.0.0,<8.0.0"
+pytest-html = ">=4.1.1,<5.0.0"
+coverage = ">=7.10.6,<8.0.0"
+ruff = "<1.0.0"
+httpx = ">=0.28,<1.0"
+jsonschema = ">=4.23,<5.0"
+hypothesis = ">=6,<7"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "F",  # pyflakes
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "D",  # pydocstyle
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+    "S",  # flake8-bandit
+]
+ignore = [
+    "D203", # 1 blank line required before class docstring
+    "D213", # Multi-line docstring summary should start at the second line
+]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is the pytest idiom; test names document the behaviour, so no per-test docstrings
+"tests/**" = ["S101", "D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+
+[tool.coverage.run]
+branch = true
+source = ["dg_configurator"]
+data_file = "reports/.coverage"
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+
+[tool.coverage.html]
+directory = "reports/coverage"
+title = "configurator - code coverage report"
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+filterwarnings = [
+    # starlette's TestClient prefers a newer httpx fork; the maintained httpx is what this project depends on
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+markers = [
+    "slow: Marks a test as a slow test (> ~1s)",
+    "unit: Marks a test as a unit test (auto-applied for tests/unit/)",
+    "integration: Marks a test as an integration test (auto-applied for tests/integration/)",
+    "functional: Marks a test as a functional test (auto-applied for tests/functional/)",
+]

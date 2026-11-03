@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "endpoints": [
+    {
+      "id": 1, "name": "history", "endpointType": "sql-client", "dbType": "postgresql", "host": "db.local",
+      "outputs": [{"id": 1, "name": "readings", "outputType": "sql-columnar-writer", "table": "readings"}]
+    }
+  ],
+  "connections": []
+}

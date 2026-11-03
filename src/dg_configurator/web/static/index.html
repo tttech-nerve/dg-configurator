@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dg-configurator</title>
+  <link rel="stylesheet" href="vendor/drawflow/drawflow.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header id="toolbar">
+    <strong class="app-title">dg-configurator <span id="tool-version"></span></strong>
+    <button type="button" id="btn-new" title="Start a new, empty configuration">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 1h7l3 3v11H3z M9 1v4h4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      New
+    </button>
+    <button type="button" id="btn-import" title="Import a config.json, deploy package or .dgproj project">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 1v9 M4 6l4 4 4-4 M2 14h12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      Import…
+    </button>
+    <input type="file" id="import-input" accept=".json,.zip,.dgproj" hidden>
+    <button type="button" id="btn-public-key" title="Optional PEM public key used to verify signed packages on import">
+      Public key: <span id="public-key-status">none</span>
+    </button>
+    <input type="file" id="public-key-input" accept=".pem" hidden>
+    <button type="button" id="btn-keys" title="Generate keys and certificates, or convert them to PEM">Keys &amp; certificates…</button>
+    <span class="spacer"></span>
+    <label class="version-label">Config version
+      <select id="version-select">
+        <option value="1.0">1.0</option>
+        <option value="1.1" selected>1.1</option>
+      </select>
+    </label>
+    <button type="button" id="btn-save-project" title="Download the configuration with layout and files as .dgproj">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 2h10l2 2v10H2z M5 2v4h6V2 M5 14v-4h6v4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      Save project
+    </button>
+    <button type="button" id="btn-export" title="Download only the config.json document">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 11V1 M4 5l4-4 4 4 M2 14h12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      Export config.json
+    </button>
+    <button type="button" id="btn-package" title="Build a deploy package (config.zip)">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 5l6-3 6 3v7l-6 3-6-3z M2 5l6 3 6-3 M8 8v7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      Package…
+    </button>
+  </header>
+
+  <div id="layout">
+    <aside id="palette" aria-label="Palette"></aside>
+    <div id="canvas">
+      <div id="drawflow"></div>
+      <div id="message" role="status" hidden></div>
+    </div>
+    <aside id="properties-panel" aria-label="Properties"></aside>
+  </div>
+
+  <footer id="diagnostics-panel" aria-label="Diagnostics" aria-live="polite"></footer>
+
+  <dialog id="package-dialog">
+    <form id="package-form" method="dialog">
+      <h2>Create deploy package</h2>
+      <label class="row"><input type="checkbox" id="package-sign"> Sign the package</label>
+      <label class="column">Private key (PEM)
+        <input type="file" id="package-key-file" accept=".pem">
+      </label>
+      <label class="column">Key password (if encrypted)
+        <input type="password" id="package-key-password" autocomplete="off">
+      </label>
+      <div class="dialog-buttons">
+        <button type="button" id="package-cancel">Cancel</button>
+        <button type="submit" id="package-create">Create package</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="keys-dialog">
+    <h2>Keys &amp; certificates</h2>
+    <div role="tablist" class="tabs" aria-label="Keys and certificates">
+      <button type="button" role="tab" id="keys-tab-keypair" aria-controls="keys-panel-keypair" aria-selected="true">Signing keypair</button>
+      <button type="button" role="tab" id="keys-tab-pki" aria-controls="keys-panel-pki" aria-selected="false">PKI generator</button>
+      <button type="button" role="tab" id="keys-tab-convert" aria-controls="keys-panel-convert" aria-selected="false">Convert to PEM</button>
+    </div>
+    <div id="keys-status" role="status" hidden></div>
+
+    <section role="tabpanel" id="keys-panel-keypair" aria-labelledby="keys-tab-keypair">
+      <p class="hint">Generates an RSA key pair for signing deploy packages. Nothing is stored on the server.</p>
+      <label class="column">Key size
+        <select id="keypair-bits">
+          <option value="2048">2048 bit</option>
+          <option value="3072">3072 bit</option>
+          <option value="4096" selected>4096 bit (recommended)</option>
+        </select>
+      </label>
+      <label class="column">Passphrase for the private key (optional)
+        <input type="password" id="keypair-passphrase" autocomplete="off">
+      </label>
+      <div class="dialog-buttons">
+        <button type="button" id="keypair-generate">Generate</button>
+      </div>
+      <div id="keypair-result"></div>
+    </section>
+
+    <section role="tabpanel" id="keys-panel-pki" aria-labelledby="keys-tab-pki" hidden></section>
+
+    <section role="tabpanel" id="keys-panel-convert" aria-labelledby="keys-tab-convert" hidden>
+      <p class="hint">Converts DER, PKCS#7, PKCS#12 and traditional or OpenSSH keys to PEM. The file is processed in memory and not stored.</p>
+      <label class="column">File
+        <input type="file" id="convert-file" accept=".pem,.crt,.cer,.der,.key,.p12,.pfx,.p7b,.p7c,.pub">
+      </label>
+      <label class="column">Password of the file (PKCS#12 or encrypted key)
+        <input type="password" id="convert-password" autocomplete="off">
+      </label>
+      <label class="column">Passphrase for the converted private key (optional)
+        <input type="password" id="convert-output-passphrase" autocomplete="off">
+      </label>
+      <label class="column">File name (optional, without extension)
+        <input type="text" id="convert-basename" autocomplete="off">
+      </label>
+      <div class="dialog-buttons">
+        <button type="button" id="convert-run">Convert</button>
+      </div>
+      <div id="convert-result"></div>
+    </section>
+
+    <div class="dialog-buttons">
+      <button type="button" id="keys-close">Close</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

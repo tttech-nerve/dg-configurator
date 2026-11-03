@@ -1,0 +1,10 @@
+{
+  "version": "1.1",
+  "endpoints": [
+    {
+      "id": 1, "name": "history", "endpointType": "sql-client", "dbType": "questdb", "host": "db.local",
+      "bootstrap": {"enabled": true, "admin": {"username": "admin", "password": "secret"}, "allowPlaintextExport": true}
+    }
+  ],
+  "connections": []
+}
